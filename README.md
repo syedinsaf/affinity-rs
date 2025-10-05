@@ -1,6 +1,11 @@
+<div align="center">
+
 # affinity-rs
 
 A simple, cross-platform CPU affinity launcher with profile support. Pin any program to specific CPU cores and save your configurations for quick reuse.
+
+</div>
+
 
 ## Features
 
