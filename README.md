@@ -10,12 +10,14 @@ A simple, cross-platform CPU affinity launcher with profile support. Pin any pro
 
 ## Features
 
-- **CPU Affinity Control** - Launch programs restricted to specific CPU cores
-- **Profile Management** - Save and reuse CPU affinity configurations
-- **Desktop Shortcuts** - Create shortcuts to launch profiles with one click
-- **Cross-Platform** - Works on both Windows and Linux
-- **Fast & Lightweight** - Built with Rust for minimal overhead
-- **Easy to Use** - Simple command-line interface
+- **CPU Affinity Control** - Pin programs to specific CPU cores
+- **Process Priority Management** - Set priority levels (Idle to Realtime)
+- **Profile System** - Save and reuse configurations
+- **Desktop Shortcuts** - One-click launching with auto-elevation support
+- **Smart Retry Logic** - Handles game launchers that spawn separate processes
+- **Profile Validation** - Detects missing executables and invalid CPU assignments
+- **Cross-Platform** - Windows and Linux support
+- **Zero Overhead** - Sets affinity/priority then exits, no background process
 
 ## Installation
 
@@ -27,9 +29,9 @@ cd affinity-rs
 cargo build --release
 ```
 
-The compiled binary will be in `target/release/affinity-rs` (or `affinity-rs.exe` on Windows).
+Binary location: `target/release/affinity-rs` (or `affinity-rs.exe` on Windows)
 
-### Add to PATH (Optional)
+### Add to PATH (Recommended)
 
 For global access, add the binary to your system PATH:
 
@@ -44,260 +46,471 @@ $env:Path += ";C:\path\to\affinity-rs"
 
 **Linux:**
 ```bash
+# On Linux, ensure /usr/local/bin is in your PATH by running echo $PATH.
 # Copy to a directory in your PATH
 sudo cp target/release/affinity-rs /usr/local/bin/
 ```
 
+## Quick Start
+
+```bash
+# Show help
+affinity-rs help
+
+# Create a new profile interactively
+affinity-rs mygame
+
+# Launch a saved profile
+affinity-rs mygame
+
+# List all profiles
+affinity-rs list
+
+# Create desktop shortcut
+affinity-rs shortcut mygame
+
+# Delete profile
+affinity-rs delete mygame
+```
+
 ## Usage
 
-### Quick Start
+### Creating Profiles
 
-Run affinity-rs without arguments to see the help menu:
+Run `affinity-rs <profile_name>` for any new name:
 
 ```bash
-affinity-rs
+affinity-rs fc3
 ```
 
-### Commands
+You'll be prompted for:
+1. **Executable path** - Full path to your program
+2. **CPU cores** - Comma-separated list (e.g., `0,2,4,6`)
+3. **Priority level** - Choose from 6 options:
+   - Idle
+   - Below Normal
+   - Normal (default)
+   - Above Normal
+   - High (requires admin on Windows)
+   - Realtime (requires admin on Windows - use with caution!)
+4. **Save profile** - Choose `y` to save, `n` for one-time launch
 
-#### List Saved Profiles
+### Process Priority Levels
+
+| Priority | Use Case | Admin Required (Windows) |
+|----------|----------|--------------------------|
+| **Idle** | Background tasks that should never interfere | No |
+| **Below Normal** | Low-priority background work | No |
+| **Normal** | Standard applications (default) | No |
+| **Above Normal** | Games and important applications | No |
+| **High** | Critical real-time applications | Yes |
+| **Realtime** | Time-critical systems only - can freeze your PC! | Yes |
+
+**Warning**: Realtime priority can make your system unresponsive. Only use it if you understand the risks.
+
+### Windows Elevation (High/Realtime Priority)
+
+On Windows, High and Realtime priorities require administrator privileges. When needed:
+
+1. affinity-rs automatically requests UAC elevation
+2. A new elevated window opens and launches your program
+3. The original window closes
+
+For unsaved profiles with High/Realtime priority, a temporary profile is created, used for elevation, then automatically cleaned up.
+
+**Desktop shortcuts for elevated profiles** automatically request admin privileges when clicked.
+
+### Launching with Arguments
+
+Pass arguments after the profile name:
+
 ```bash
+affinity-rs mygame --fullscreen --resolution 1920x1080
+```
+
+### Desktop Shortcuts
+
+```bash
+affinity-rs shortcut mygame
+```
+
+Creates a clickable shortcut on your desktop:
+- **Windows**: `.bat` file (auto-elevates if High/Realtime priority)
+- **Linux**: `.desktop` file with executable permissions
+
+### Profile Management
+
+```bash
+# List all saved profiles
 affinity-rs list
+
+# Output shows:
+# - Profile name
+# - Executable path
+# - CPU cores assigned
+# - Priority level
+# - [requires admin] badge if applicable
+# - Warning if executable not found
+
+# Delete a profile and its shortcut
+affinity-rs delete mygame
 ```
 
-#### Create and Run a New Profile
-```bash
-affinity-rs myapp
-```
+### Profile Storage
 
-This will prompt you to:
-1. Enter the full program path
-2. Specify CPU cores (e.g., `0,2,4,6`)
-3. Choose whether to save as a profile
+Profiles are stored in JSON format:
 
-#### Run a Saved Profile
-```bash
-affinity-rs myapp
-```
+**Windows**: `%APPDATA%\affinity\AffinityRs\config\profiles.json`
 
-If a profile named "myapp" exists, it will launch immediately with the saved settings.
+**Linux**: `~/.config/affinity-rs/AffinityRs/profiles.json`
 
-#### Run a Profile with Arguments
-```bash
-affinity-rs myapp --arg1 value1 --arg2
-```
-
-#### Delete a Profile
-```bash
-affinity-rs delete myapp
-```
-
-#### Create a Desktop Shortcut
-```bash
-affinity-rs shortcut myapp
-```
-
-Creates a clickable shortcut on your desktop that launches the profile. On Windows, this creates a `.bat` file. On Linux, this creates a `.desktop` file.
-
-## Examples
-
-### Example 1: Pin a Game to Performance Cores
-
-```bash
-# Create a profile for Far Cry 3
-affinity-rs fc3
-
-# Enter path: D:\Games\Far Cry 3\bin\farcry3_d3d11.exe
-# Enter cores: 2,4,6,8
-# Save profile? y
-
-# Next time, just run:
-affinity-rs fc3
-
-# Or create a desktop shortcut:
-affinity-rs shortcut fc3
-```
-
-### Example 2: Run a Video Encoder on Specific Cores
-
-```bash
-# Create a profile for HandBrake
-affinity-rs handbrake
-
-# Enter path: C:\Program Files\HandBrake\HandBrakeCLI.exe
-# Enter cores: 0,1,2,3,4,5,6,7
-# Save profile? y
-
-# Run with arguments:
-affinity-rs handbrake -i input.mp4 -o output.mp4
-```
-
-### Example 3: One-Time Launch Without Saving
-
-```bash
-affinity-rs temp
-
-# Enter path: C:\Program Files\MyApp\app.exe
-# Enter cores: 0,1
-# Save profile? n
-```
-
-## Profile Storage
-
-Profiles are saved in a platform-specific configuration directory:
-
-**Windows:** `C:\Users\<YourUsername>\AppData\Roaming\affinity\AffinityRs\config\profiles.json`
-
-**Linux:** `~/.config/affinity-rs/AffinityRs/profiles.json`
-
-The file format is:
-
+Example `profiles.json`:
 ```json
 {
   "fc3": {
     "path": "D:\\Games\\Far Cry 3\\bin\\farcry3_d3d11.exe",
-    "cpus": [2, 4, 6, 8]
+    "cpus": [2, 4, 6, 8],
+    "priority": "above_normal"
   },
-  "handbrake": {
-    "path": "C:\\Program Files\\HandBrake\\HandBrakeCLI.exe",
-    "cpus": [0, 1, 2, 3, 4, 5, 6, 7]
+  "encoder": {
+    "path": "/usr/bin/ffmpeg",
+    "cpus": [0, 1, 2, 3],
+    "priority": "below_normal",
+    "retry_attempts": 3
   }
 }
 ```
 
-You can manually edit this file if needed.
+You can manually edit this file to:
+- Change paths
+- Adjust CPU assignments
+- Modify priority levels
+- Set custom retry attempts (default: 5)
 
 ## Use Cases
 
-- **Old Games**: Many older games weren't designed for modern multi-core CPUs and can have compatibility issues, stuttering, or crashes when running on all cores. Limiting them to fewer cores (e.g., cores 0-3) can fix these issues
-- **Legacy Applications**: Programs built for single-core or dual-core systems may perform better when restricted to specific cores
-- **Hybrid CPUs**: Modern Intel and AMD processors have performance cores (P-cores) and efficiency cores (E-cores). Pin games to P-cores for better performance
-- **Gaming**: Reduce stuttering and improve frame times by dedicating specific cores to your game
-- **Video Encoding**: Dedicate specific cores to encoding tasks while leaving others free for system responsiveness
-- **Streaming**: Separate game and streaming software (OBS, etc.) on different cores to prevent performance drops
-- **Server Applications**: Isolate critical services on specific cores for predictable performance
-- **Development**: Control resource usage during compilation or testing
-- **Benchmarking**: Ensure consistent CPU allocation for reproducible results
-- **Troubleshooting**: Test if CPU-related issues are caused by specific cores or thread scheduling
+### Gaming
 
-## Why Use affinity-rs Instead of Other Methods?
-
-| Feature | Windows Task Manager | PowerShell | affinity-rs |
-|---------|---------------------|------------|-------------|
-| **CPU Selection** | Click checkboxes manually | Hex mask: `0x155` | Simple list: `2,4,6,8` |
-| **Profiles** | None - set every time | None - write script each time | Save and reuse profiles |
-| **Desktop Shortcuts** | None | Manual script creation | One command |
-| **Persistence** | Resets on restart | Works at launch only | Launches with affinity every time |
-| **Ease of Use** | Launch first, then set | Complex syntax | One simple command |
-| **Launch Method** | Program must be running | `Start-Process -AffinityMask` | `affinity-rs mygame` |
-| **Hex Calculation** | Not needed | Must calculate hex manually | Automatic conversion |
-| **CLI Usage** | Cannot automate | Can script but complex | Easy scripting |
-| **Cross-platform** | Windows only | Windows only | Windows and Linux |
-
-### Example Comparison
-
-**Windows Task Manager Method:**
-1. Launch your game
-2. Open Task Manager (Ctrl+Shift+Esc)
-3. Find your game process
-4. Right-click → Set Affinity
-5. Manually click CPU 2, CPU 4, CPU 6, CPU 8 checkboxes
-6. Repeat every time you launch the game
-
-**PowerShell Method:**
-```powershell
-Start-Process "C:\Games\mygame.exe" -AffinityMask 0x155
-```
-(You need to calculate that 0x155 = CPUs 0,2,4,6,8 in hex)
-
-**affinity-rs Method:**
+**Old games with multi-core issues**:
+Many older games have bugs when running on modern CPUs:
 ```bash
-affinity-rs mygame
+affinity-rs oldgame
+# Assign to CPUs: 0,1,2,3
+# Priority: Above Normal
 ```
-Done. The game launches with the correct affinity automatically.
 
-## Platform-Specific Notes
+**Hybrid CPU optimization** (Intel 12th gen+, AMD Ryzen 7000+):
+Pin games to performance cores only:
+```bash
+# Intel P-cores are typically 0,2,4,6,8,10...
+affinity-rs mygame
+# Assign to CPUs: 0,2,4,6,8,10
+# Priority: High (requires admin)
+```
+
+**Reduce stuttering**:
+Dedicating specific cores can improve frame times and reduce microstutter.
+
+### Content Creation
+
+**Video encoding**:
+```bash
+affinity-rs handbrake
+# Assign to CPUs: 0,1,2,3,4,5,6,7
+# Priority: Below Normal
+# Encodes in background without affecting foreground tasks
+```
+
+**Streaming**:
+Separate game and OBS on different cores:
+```bash
+# Game on P-cores
+affinity-rs game
+# Assign to CPUs: 0,2,4,6
+
+# OBS on E-cores  
+affinity-rs obs
+# Assign to CPUs: 8,9,10,11
+```
+
+### Development
+
+**Compilation**:
+```bash
+affinity-rs build
+# Assign to CPUs: 0,1,2,3,4,5,6,7
+# Priority: Below Normal
+# Build in background while working
+```
+
+**Testing**:
+Reproduce issues on specific core configurations.
+
+### Servers & Services
+
+**Database isolation**:
+```bash
+affinity-rs postgres
+# Assign to CPUs: 0,1,2,3
+# Priority: High
+# Dedicated cores for predictable performance
+```
+
+## Why Use affinity-rs?
+
+### vs. Windows Task Manager
+
+| Task Manager | affinity-rs |
+|--------------|-------------|
+| Launch program first | Launch with affinity |
+| Open Task Manager every time | One command |
+| Click checkboxes manually | Simple list: `0,2,4` |
+| No persistence | Saved profiles |
+| No priority on launch | Set priority immediately |
+| No automation | Script-friendly |
+
+### vs. PowerShell
+
+| PowerShell | affinity-rs |
+|------------|-------------|
+| `Start-Process -AffinityMask 0x155` | `affinity-rs game` |
+| Calculate hex masks | Use decimal CPU numbers |
+| No profile system | Save and reuse |
+| Complex scripts | Simple commands |
+| No auto-elevation | Automatic UAC prompts |
+
+### vs. Start /AFFINITY (Command Prompt)
+
+| CMD | affinity-rs |
+|-----|-------------|
+| `start /affinity 55 game.exe` | `affinity-rs game` |
+| Hex mask required | Decimal list |
+| No priority control | Full priority support |
+| Windows only | Cross-platform |
+
+## Platform-Specific Details
 
 ### Windows
-- Uses the Windows API (`SetProcessAffinityMask`) to set CPU affinity
-- Supports CPU cores 0-31 (32-core limit due to Windows API constraints)
-- Process launches independently after affinity is set
-- Desktop shortcuts are `.bat` files that call affinity-rs
+
+- Uses `SetProcessAffinityMask` and `SetPriorityClass` Win32 APIs
+- Retries up to 5 times (configurable) to handle launcher → game transitions
+- Detects when launchers spawn separate processes
+- Automatic UAC elevation for High/Realtime priorities
+- Verifies affinity/priority were successfully applied
+
+**Known limitation**: Some games with anti-cheat or launchers may reset their own priority. This is normal and not a bug in affinity-rs.
 
 ### Linux
+
 - Uses `taskset` command (must be installed)
-- Install with: `sudo apt install util-linux` (usually pre-installed)
-- Supports all available CPU cores
-- Process launches independently after taskset applies affinity
-- Desktop shortcuts are `.desktop` files with executable permissions
+- Uses `nice` for priority control
+- Install if missing: `sudo apt install util-linux`
+
+**Priority mapping**:
+- Idle → nice 19
+- Below Normal → nice 10
+- Normal → nice 0
+- Above Normal → nice -5
+- High → nice -10
+- Realtime → nice -20
+
+Negative nice values may require `sudo` or appropriate permissions.
 
 ## Troubleshooting
 
-### "Failed to set CPU affinity" on Windows
-- Run as Administrator
-- Ensure CPU numbers are valid for your system (0-indexed)
-- Check that the process hasn't already exited
+### "Failed to set CPU affinity"
 
-### "taskset: command not found" on Linux
-Install util-linux:
+**Cause**: Process exited too quickly or invalid CPU numbers
+
+**Solutions**:
+- Verify CPU numbers exist on your system (run `affinity-rs list` to see warnings)
+- Try increasing retry attempts by manually editing `profiles.json`:
+  ```json
+  "retry_attempts": 10
+  ```
+- For games with launchers, target the actual game .exe directly
+
+### Profile validation failed: Executable not found
+
+Your executable was moved or deleted. Options:
+1. Update path: Choose option 1 when prompted
+2. Delete profile: `affinity-rs delete profilename`
+3. Manually edit `profiles.json`
+
+### UAC prompt appears every time (Windows)
+
+This is normal for High/Realtime priorities. To avoid:
+1. Use Normal or Above Normal priority instead
+2. Right-click the .bat shortcut → Properties → Advanced → "Run as administrator"
+3. Create a Windows scheduled task (advanced users)
+
+### "taskset: command not found" (Linux)
+
 ```bash
 sudo apt install util-linux
 ```
 
-### Program path with spaces
-The tool automatically handles paths with spaces and strips quotes if you paste them. Both formats work:
-- `C:\Program Files\My Game\game.exe`
-- `"C:\Program Files\My Game\game.exe"`
+### Warning: CPU X references CPU beyond system count
 
-### Desktop shortcut not working
-- **Windows**: Ensure affinity-rs.exe is in your PATH or use the full path in the .bat file
-- **Linux**: Ensure the .desktop file has executable permissions (automatically set by affinity-rs)
+Your profile specifies a CPU that doesn't exist on this system (e.g., CPU 15 on an 8-core system). The OS will ignore invalid cores. To fix:
+
+```bash
+# Check your CPU count
+nproc  # Linux
+wmic cpu get NumberOfLogicalProcessors  # Windows
+
+# Update profile
+affinity-rs delete oldprofile
+affinity-rs newprofile  # Create with correct CPUs
+```
+
+### Process reset its priority
+
+Some applications (especially games) intentionally reset their own priority after launch. This is normal. affinity-rs sets priority at launch, but can't prevent the application from changing it later.
 
 ## Building from Source
 
 ### Requirements
-- Rust 1.70 or later (edition 2021)
+
+- Rust 1.70+ (2021 edition)
 - Cargo
 
 ### Dependencies
+
 ```toml
 [dependencies]
+anyhow = "1.0.100"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 directories = "6.0.0"
-anyhow = "1.0.100"
+num_cpus = "1.16"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.1", features = [
     "Win32_Foundation",
     "Win32_System_Threading",
+    "Win32_Security",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 ```
 
-### Build
+### Build Commands
+
 ```bash
+# Development build
+cargo build
+
+# Optimized release build
 cargo build --release
+
+# Run tests
+cargo test
+
+# Check for errors without building
+cargo check
 ```
 
-The optimized binary will be in `target/release/`.
+## Advanced Usage
+
+### Manual Profile Editing
+
+Edit `profiles.json` directly for batch changes:
+
+```json
+{
+  "game1": {
+    "path": "C:\\Games\\game1.exe",
+    "cpus": [0, 2, 4, 6],
+    "priority": "high",
+    "retry_attempts": 10
+  }
+}
+```
+
+Fields:
+- `path` (required): Full path to executable
+- `cpus` (required): Array of CPU core numbers (0-indexed)
+- `priority` (optional): `idle`, `below_normal`, `normal`, `above_normal`, `high`, `realtime`
+- `retry_attempts` (optional): Number of times to retry setting affinity (default: 5)
+
+### Scripting & Automation
+
+Launch profiles from scripts:
+
+```bash
+# Batch file (Windows)
+@echo off
+affinity-rs game1
+affinity-rs encoder
+```
+
+```bash
+# Shell script (Linux)
+#!/bin/bash
+affinity-rs game1 &
+sleep 2
+affinity-rs voice-chat &
+```
+
+### Finding CPU Core Numbers
+
+**Windows PowerShell**:
+```powershell
+# Show logical processor count
+(Get-WmiObject Win32_Processor).NumberOfLogicalProcessors
+
+# View core layout
+Get-WmiObject Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
+```
+
+**Linux**:
+```bash
+# Show CPU count
+nproc
+
+# View detailed CPU info
+lscpu
+
+# View per-core info
+cat /proc/cpuinfo | grep processor
+```
+
+For hybrid CPUs (Intel 12th gen+), P-cores typically come first. Check your BIOS or CPU-Z for exact mapping.
+
+## Performance Tips
+
+1. **Don't over-restrict**: Leaving at least 2 cores free helps system responsiveness
+2. **Test different configurations**: Profile multiple variations and test which works best
+3. **Monitor performance**: Use Task Manager (Windows) or `htop` (Linux) to verify affinity is working
+4. **Launcher vs Game**: If using a game launcher, target the actual game .exe for better results
+5. **Priority abuse**: Don't set everything to High/Realtime - it defeats the purpose
+
+## Known Limitations
+
+- Windows API limits affinity to 64 cores maximum (most systems have far fewer)
+- Some protected processes (system services, anti-cheat) cannot have affinity modified
+- Applications can reset their own priority after launch (by design)
+- Game launchers that spawn separate processes may require manual targeting of the game .exe
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
 
+## Credits
+
+Built with:
+- [Rust](https://www.rust-lang.org/) - Systems programming language
+- [windows-sys](https://github.com/microsoft/windows-rs) - Windows API bindings
+- [serde](https://serde.rs/) - Serialization framework
+- [directories](https://github.com/dirs-dev/directories-rs) - Platform dirs
+- [anyhow](https://github.com/dtolnay/anyhow) - Error handling
+- [num_cpus](https://github.com/seanmonstar/num_cpus) - CPU detection
+
+---
+
 ## License
 
 MIT License - feel free to use this in your projects!
 
-## Credits
-
-Built with Rust using:
-- `windows-sys` - Official Microsoft Windows API bindings
-- `directories` - Cross-platform configuration paths
-- `serde` & `serde_json` - Serialization
-- `anyhow` - Error handling
-
-CPU affinity is controlled via Windows API (`SetProcessAffinityMask`) on Windows and `taskset` on Linux.
-
----
-
-**Note**: CPU affinity settings affect how the operating system schedules threads. Use responsibly and understand your system's CPU topology before pinning critical applications.
+**Disclaimer**: CPU affinity and process priority are advanced system features. Improper use (especially Realtime priority) can cause system instability. Use responsibly and understand your hardware before making changes.
