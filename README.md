@@ -507,6 +507,4 @@ Built with:
 
 MIT License - feel free to use this in your projects!
 
----
-
 **Disclaimer**: CPU affinity and process priority are advanced system features. Improper use (especially Realtime priority) can cause system instability. Use responsibly and understand your hardware before making changes.
