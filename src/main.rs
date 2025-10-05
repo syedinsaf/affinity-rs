@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, exit};
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 use directories::{ProjectDirs, UserDirs};
 #[cfg(target_os = "linux")]
@@ -95,24 +95,20 @@ fn get_profile_path() -> Result<PathBuf> {
 
 fn load_profiles() -> Result<Profiles> {
     let profile_path = get_profile_path()?;
-    
+
     if !profile_path.exists() {
         return Ok(Profiles::new());
     }
 
-    let data = std::fs::read_to_string(&profile_path)
-        .context("Failed to read profiles file")?;
-    
-    serde_json::from_str(&data)
-        .context("Failed to parse profiles JSON")
+    let data = std::fs::read_to_string(&profile_path).context("Failed to read profiles file")?;
+
+    serde_json::from_str(&data).context("Failed to parse profiles JSON")
 }
 
 fn save_profiles(profiles: &Profiles) -> Result<()> {
     let profile_path = get_profile_path()?;
-    let data = serde_json::to_string_pretty(profiles)
-        .context("Failed to serialize profiles")?;
-    std::fs::write(profile_path, data)
-        .context("Failed to write profiles to disk")?;
+    let data = serde_json::to_string_pretty(profiles).context("Failed to serialize profiles")?;
+    std::fs::write(profile_path, data).context("Failed to write profiles to disk")?;
     Ok(())
 }
 
@@ -137,31 +133,31 @@ fn get_cpu_input() -> Result<Vec<usize>> {
     loop {
         let input = read_line("Enter CPU cores (comma-separated, e.g., 0,1,2,3): ")?;
         let trimmed = input.trim();
-        
+
         if trimmed.is_empty() {
             eprintln!("Error: CPU cores cannot be empty.");
             continue;
         }
-        
+
         let is_valid = trimmed
             .chars()
             .all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace());
-        
+
         if !is_valid {
             eprintln!("Error: only numbers, commas, and spaces allowed.");
             continue;
         }
-        
+
         let cpus: Vec<usize> = trimmed
             .split(',')
             .filter_map(|s| s.trim().parse().ok())
             .collect();
-        
+
         if cpus.is_empty() {
             eprintln!("Error: no valid cores provided.");
             continue;
         }
-        
+
         return Ok(cpus);
     }
 }
@@ -172,26 +168,26 @@ fn get_priority_input() -> Result<Option<ProcessPriority>> {
     println!("  2. Below Normal");
     println!("  3. Normal [default]");
     println!("  4. Above Normal");
-    
+
     #[cfg(target_os = "windows")]
     {
         println!("  5. High [requires admin]");
         println!("  6. Realtime [requires admin - WARNING: Can freeze your system!]");
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         println!("  5. High [may require sudo]");
         println!("  6. Realtime [may require sudo - WARNING: Can freeze your system!]");
     }
-    
+
     let input = read_line("Enter priority (1-6, or press Enter for Normal): ")?;
     let trimmed = input.trim();
-    
+
     if trimmed.is_empty() {
         return Ok(None);
     }
-    
+
     let priority = match trimmed {
         "1" => ProcessPriority::Idle,
         "2" => ProcessPriority::BelowNormal,
@@ -202,31 +198,33 @@ fn get_priority_input() -> Result<Option<ProcessPriority>> {
             println!("\nWARNING: Realtime priority can make your system unresponsive!");
             println!("Only use this if you understand the risks.");
             ProcessPriority::Realtime
-        },
+        }
         _ => {
             eprintln!("Invalid selection, using Normal priority");
             ProcessPriority::Normal
         }
     };
-    
+
     Ok(Some(priority))
 }
 
 #[cfg(target_os = "windows")]
 fn is_elevated() -> bool {
-    use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
     use windows_sys::Win32::Foundation::CloseHandle;
-    
+    use windows_sys::Win32::Security::{
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+    };
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
     unsafe {
         let mut token = std::ptr::null_mut();
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
             return false;
         }
-        
+
         let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
         let mut return_length: u32 = 0;
-        
+
         let result = GetTokenInformation(
             token,
             TokenElevation,
@@ -234,38 +232,38 @@ fn is_elevated() -> bool {
             std::mem::size_of::<TOKEN_ELEVATION>() as u32,
             &mut return_length,
         );
-        
+
         CloseHandle(token);
-        
+
         result != 0 && elevation.TokenIsElevated != 0
     }
 }
 
 #[cfg(target_os = "windows")]
 fn relaunch_elevated(profile_name: &str, args: &[String]) -> Result<()> {
-    use windows_sys::Win32::UI::Shell::ShellExecuteW;
     use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    
-    let current_exe = std::env::current_exe()
-        .context("Failed to get current executable path")?;
-    let current_exe_str = current_exe.to_str()
+
+    let current_exe = std::env::current_exe().context("Failed to get current executable path")?;
+    let current_exe_str = current_exe
+        .to_str()
         .context("Executable path contains invalid UTF-8")?;
-    
+
     println!("\nAdministrator privileges required for this priority level.");
     println!("Requesting elevation...\n");
-    
+
     // Build parameters: profile_name + cleanup flag + any additional args
     let mut params = vec![profile_name.to_string(), ELEVATION_CLEANUP_FLAG.to_string()];
     params.extend_from_slice(args);
     let params_str = params.join(" ");
-    
+
     unsafe {
         // Convert strings to wide strings for Windows API
         let operation: Vec<u16> = "runas\0".encode_utf16().collect();
         let file: Vec<u16> = current_exe_str.encode_utf16().chain(Some(0)).collect();
         let parameters: Vec<u16> = params_str.encode_utf16().chain(Some(0)).collect();
-        
+
         let result = ShellExecuteW(
             0 as HWND,
             operation.as_ptr(),
@@ -274,7 +272,7 @@ fn relaunch_elevated(profile_name: &str, args: &[String]) -> Result<()> {
             std::ptr::null(),
             SW_SHOWNORMAL as i32,
         );
-        
+
         // ShellExecuteW returns > 32 on success
         let result_code = result as isize;
         if result_code > 32 {
@@ -304,15 +302,15 @@ fn validate_profile(profile: &Profile) -> Result<()> {
             profile.path.display()
         );
     }
-    
+
     if profile.cpus.is_empty() {
         bail!("Profile has no CPU cores configured");
     }
-    
+
     // Check if CPU indices are reasonable
     let max_cpu = profile.cpus.iter().max().unwrap();
     let system_cpu_count = num_cpus::get();
-    
+
     if *max_cpu >= system_cpu_count {
         eprintln!(
             "Warning: Profile references CPU {}, but system only has {} logical CPUs",
@@ -320,15 +318,11 @@ fn validate_profile(profile: &Profile) -> Result<()> {
         );
         eprintln!("Some CPU assignments may be ignored by the OS.");
     }
-    
+
     Ok(())
 }
 
-fn launch_with_retry<F>(
-    attempts: usize,
-    initial_delay_ms: u64,
-    mut operation: F
-) -> Result<bool>
+fn launch_with_retry<F>(attempts: usize, initial_delay_ms: u64, mut operation: F) -> Result<bool>
 where
     F: FnMut(usize) -> Result<bool>,
 {
@@ -339,21 +333,24 @@ where
             // Exponential backoff with cap at 1000ms
             (initial_delay_ms * 2_u64.pow((attempt - 1) as u32)).min(1000)
         };
-        
+
         thread::sleep(Duration::from_millis(delay));
-        
+
         match operation(attempt) {
-            Ok(true) => return Ok(true),  // Success
-            Ok(false) => continue,         // Retry
+            Ok(true) => return Ok(true), // Success
+            Ok(false) => continue,       // Retry
             Err(e) => {
                 if attempt == attempts {
                     return Err(e);
                 }
-                eprintln!("Attempt {}/{} failed: {}. Retrying...", attempt, attempts, e);
+                eprintln!(
+                    "Attempt {}/{} failed: {}. Retrying...",
+                    attempt, attempts, e
+                );
             }
         }
     }
-    
+
     Ok(false)
 }
 
@@ -365,10 +362,10 @@ fn launch_profile_linux(profile: &Profile, args: &[String]) -> Result<()> {
         .map(usize::to_string)
         .collect::<Vec<_>>()
         .join(",");
-    
+
     let mut cmd = Command::new("taskset");
     cmd.arg("-c").arg(&cpu_str);
-    
+
     // Wrap with nice if priority is specified
     if let Some(ref priority) = profile.priority {
         let nice_value = priority.to_nice_value();
@@ -385,13 +382,14 @@ fn launch_profile_linux(profile: &Profile, args: &[String]) -> Result<()> {
     } else {
         cmd.arg(&profile.path).args(args);
     }
-    
-    let child = cmd.spawn()
+
+    let child = cmd
+        .spawn()
         .context("Failed to spawn process. Is 'taskset' installed?")?;
-    
+
     println!("Process launched with PID: {}", child.id());
     println!("Program is running independently.\n");
-    
+
     Ok(())
 }
 
@@ -399,9 +397,8 @@ fn launch_profile_linux(profile: &Profile, args: &[String]) -> Result<()> {
 fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
-        GetProcessAffinityMask, OpenProcess, PROCESS_QUERY_INFORMATION,
-        PROCESS_SET_INFORMATION, SetProcessAffinityMask, SetPriorityClass,
-        GetPriorityClass,
+        GetPriorityClass, GetProcessAffinityMask, OpenProcess, PROCESS_QUERY_INFORMATION,
+        PROCESS_SET_INFORMATION, SetPriorityClass, SetProcessAffinityMask,
     };
 
     // Calculate affinity mask
@@ -416,7 +413,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
         }
         affinity_mask |= 1 << cpu;
     }
-    
+
     if affinity_mask == 0 {
         bail!("No valid CPUs specified after validation");
     }
@@ -425,7 +422,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
         .args(args)
         .spawn()
         .context("Failed to spawn process")?;
-    
+
     let pid = child.id();
     println!("Process launched with PID: {}", pid);
 
@@ -436,12 +433,8 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
     // Try multiple times to handle launcher -> game transitions
     let success = launch_with_retry(retry_attempts, 100, |attempt| {
         unsafe {
-            let handle = OpenProcess(
-                PROCESS_SET_INFORMATION | PROCESS_QUERY_INFORMATION,
-                0,
-                pid
-            );
-            
+            let handle = OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_INFORMATION, 0, pid);
+
             if handle.is_null() {
                 if attempt == retry_attempts {
                     eprintln!(
@@ -462,12 +455,12 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
                     CloseHandle(handle);
                     return Err(anyhow::anyhow!("Failed to set CPU affinity: {}", err));
                 }
-                
+
                 // Verify affinity
                 let mut process_affinity: usize = 0;
                 let mut system_affinity: usize = 0;
                 GetProcessAffinityMask(handle, &mut process_affinity, &mut system_affinity);
-                
+
                 if process_affinity == affinity_mask {
                     println!("CPU affinity set and verified: 0x{:X}", process_affinity);
                     affinity_set = true;
@@ -485,11 +478,11 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
                 if !priority_set {
                     let priority_class = priority.to_windows_class();
                     let priority_result = SetPriorityClass(handle, priority_class);
-                    
+
                     if priority_result == 0 {
                         let err = std::io::Error::last_os_error();
                         eprintln!("Failed to set process priority: {}", err);
-                        
+
                         if priority.requires_elevation() && !is_elevated() {
                             eprintln!(
                                 "Note: {} priority requires administrator privileges.",
@@ -500,7 +493,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
                         // Verify priority after a short delay
                         thread::sleep(Duration::from_millis(100));
                         let actual_priority = GetPriorityClass(handle);
-                        
+
                         if actual_priority == priority_class {
                             println!("Process priority set to: {}", priority.display_name());
                             priority_set = true;
@@ -508,9 +501,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
                             eprintln!("Could not verify priority (GetPriorityClass failed)");
                             priority_set = true; // Don't keep retrying
                         } else {
-                            println!(
-                                "Note: Process reset its priority to a different value."
-                            );
+                            println!("Note: Process reset its priority to a different value.");
                             println!(
                                 "This is normal for some applications (especially games with launchers)."
                             );
@@ -521,7 +512,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
             }
 
             CloseHandle(handle);
-            
+
             // Check if process still exists for next attempt
             if attempt < retry_attempts && !affinity_set {
                 thread::sleep(Duration::from_millis(200));
@@ -539,7 +530,7 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
                 }
                 CloseHandle(check_handle);
             }
-            
+
             // Success if affinity was set
             Ok(affinity_set)
         }
@@ -555,20 +546,17 @@ fn launch_profile_windows(profile: &Profile, args: &[String]) -> Result<()> {
 }
 
 fn launch_profile(profile: &Profile, args: &[String]) -> Result<()> {
-    println!(
-        "\nLaunching: {}",
-        profile.path.display()
-    );
+    println!("\nLaunching: {}", profile.path.display());
     println!("CPU affinity: {:?}", profile.cpus);
-    
+
     if let Some(ref priority) = profile.priority {
         println!("Priority: {}", priority.display_name());
     }
-    
+
     if !args.is_empty() {
         println!("Arguments: {:?}", args);
     }
-    
+
     println!();
 
     #[cfg(target_os = "linux")]
@@ -587,13 +575,13 @@ fn launch_or_exit(
     // Validate profile before attempting launch
     if let Err(e) = validate_profile(profile) {
         eprintln!("Profile validation failed: {:#}", e);
-        
+
         if profile_name.is_some() {
             eprintln!("\nWould you like to:");
             eprintln!("  1. Update the profile path");
             eprintln!("  2. Delete this profile");
             eprintln!("  3. Exit");
-            
+
             if let Ok(choice) = read_line("Enter choice (1-3): ") {
                 match choice.as_str() {
                     "1" => {
@@ -605,7 +593,9 @@ fn launch_or_exit(
                                         if let Some(p) = profiles.get_mut(name) {
                                             p.path = PathBuf::from(new_path);
                                             if save_profiles(&profiles).is_ok() {
-                                                println!("Profile updated! Please run the command again.");
+                                                println!(
+                                                    "Profile updated! Please run the command again."
+                                                );
                                             }
                                         }
                                     }
@@ -626,7 +616,7 @@ fn launch_or_exit(
                 }
             }
         }
-        
+
         pause_before_exit();
         exit(1);
     }
@@ -642,10 +632,12 @@ fn launch_or_exit(
                     None => {
                         // Create temporary profile for elevation
                         println!("\nNote: Using temporary profile for elevation.");
-                        println!("Consider saving this profile if you'll use these settings again.\n");
-                        
-                        let temp_name = format!("{}{}",  TEMP_PROFILE_PREFIX, std::process::id());
-                        
+                        println!(
+                            "Consider saving this profile if you'll use these settings again.\n"
+                        );
+
+                        let temp_name = format!("{}{}", TEMP_PROFILE_PREFIX, std::process::id());
+
                         if let Ok(mut profiles) = load_profiles() {
                             profiles.insert(temp_name.clone(), profile.clone());
                             if let Err(e) = save_profiles(&profiles) {
@@ -658,11 +650,11 @@ fn launch_or_exit(
                             pause_before_exit();
                             exit(1);
                         }
-                        
+
                         temp_name
                     }
                 };
-                
+
                 match relaunch_elevated(&name, args) {
                     Ok(_) => exit(0),
                     Err(e) => {
@@ -673,19 +665,19 @@ fn launch_or_exit(
                                 let _ = save_profiles(&profiles);
                             }
                         }
-                        
+
                         eprintln!("\nError requesting elevation: {:#}", e);
                         eprintln!("\nOptions:");
                         eprintln!("  1. Run this program as Administrator");
                         eprintln!("  2. Choose a lower priority (Normal or Above Normal)");
                         eprintln!("  3. Launch anyway with Normal priority");
-                        
+
                         if let Ok(choice) = read_line("\nEnter choice (1-3): ") {
                             if choice == "3" {
                                 println!("\nLaunching with Normal priority instead...");
                                 let mut fallback_profile = profile.clone();
                                 fallback_profile.priority = Some(ProcessPriority::Normal);
-                                
+
                                 match launch_profile(&fallback_profile, args) {
                                     Ok(_) => exit(0),
                                     Err(e) => {
@@ -696,7 +688,7 @@ fn launch_or_exit(
                                 }
                             }
                         }
-                        
+
                         pause_before_exit();
                         exit(1);
                     }
@@ -704,7 +696,7 @@ fn launch_or_exit(
             }
         }
     }
-    
+
     // Launch the profile
     match launch_profile(profile, args) {
         Ok(_) => {
@@ -731,19 +723,18 @@ fn launch_or_exit(
 
 fn delete_profile(profiles: &mut Profiles, keyword: &str) -> Result<()> {
     if profiles.remove(keyword).is_some() {
-        save_profiles(profiles)
-            .context("Failed to save profiles after deletion")?;
+        save_profiles(profiles).context("Failed to save profiles after deletion")?;
         println!("Profile '{}' deleted successfully.", keyword);
-        
+
         // Try to delete associated desktop shortcut
         if let Some(user_dirs) = UserDirs::new() {
             if let Some(desktop_dir) = user_dirs.desktop_dir() {
                 #[cfg(target_os = "windows")]
                 let shortcut_path = desktop_dir.join(format!("{}.bat", keyword));
-                
+
                 #[cfg(target_os = "linux")]
                 let shortcut_path = desktop_dir.join(format!("{}.desktop", keyword));
-                
+
                 if shortcut_path.exists() {
                     match std::fs::remove_file(&shortcut_path) {
                         Ok(_) => println!(
@@ -766,25 +757,29 @@ fn list_profiles(profiles: &Profiles) {
         println!("No saved profiles.");
         return;
     }
-    
+
     println!("Saved profiles:\n");
-    
+
     for (name, profile) in profiles {
         // Skip temp profiles
         if name.starts_with(TEMP_PROFILE_PREFIX) {
             continue;
         }
-        
+
         println!("Profile: {}", name);
         println!("  Path: {}", profile.path.display());
         println!("  CPUs: {:?}", profile.cpus);
-        
-        let priority_str = profile.priority.as_ref()
+
+        let priority_str = profile
+            .priority
+            .as_ref()
             .map(|p| p.display_name())
             .unwrap_or("Normal");
-        
+
         #[cfg(target_os = "windows")]
-        let admin_note = if profile.priority.as_ref()
+        let admin_note = if profile
+            .priority
+            .as_ref()
             .map(|p| p.requires_elevation())
             .unwrap_or(false)
         {
@@ -792,48 +787,51 @@ fn list_profiles(profiles: &Profiles) {
         } else {
             ""
         };
-        
+
         #[cfg(not(target_os = "windows"))]
         let admin_note = "";
-        
+
         println!("  Priority: {}{}", priority_str, admin_note);
-        
+
         if let Some(attempts) = profile.retry_attempts {
             println!("  Retry attempts: {}", attempts);
         }
-        
+
         // Validate path exists
         if !profile.path.exists() {
             println!("  WARNING: Executable not found!");
         }
-        
+
         println!();
     }
 }
 
 fn create_shortcut(profiles: &Profiles, keyword: &str) -> Result<()> {
-    let profile = profiles.get(keyword)
+    let profile = profiles
+        .get(keyword)
         .context(format!("Profile '{}' not found", keyword))?;
 
-    let current_exe = std::env::current_exe()
-        .context("Failed to get current executable path")?;
-    let current_exe_str = current_exe.to_str()
+    let current_exe = std::env::current_exe().context("Failed to get current executable path")?;
+    let current_exe_str = current_exe
+        .to_str()
         .context("Executable path contains invalid UTF-8")?;
 
-    let user_dirs = UserDirs::new()
-        .context("Could not find user directories")?;
-    let desktop_dir = user_dirs.desktop_dir()
+    let user_dirs = UserDirs::new().context("Could not find user directories")?;
+    let desktop_dir = user_dirs
+        .desktop_dir()
         .context("Could not find Desktop directory")?;
 
     #[cfg(target_os = "windows")]
     {
         let bat_path = desktop_dir.join(format!("{}.bat", keyword));
-        
+
         // Check if elevation is needed
-        let needs_admin = profile.priority.as_ref()
+        let needs_admin = profile
+            .priority
+            .as_ref()
             .map(|p| p.requires_elevation())
             .unwrap_or(false);
-        
+
         let content = if needs_admin {
             // Create elevated shortcut
             format!(
@@ -845,16 +843,17 @@ fn create_shortcut(profiles: &Profiles, keyword: &str) -> Result<()> {
         } else {
             format!("@echo off\r\n\"{}\" {}\r\n", current_exe_str, keyword)
         };
-        
-        std::fs::write(&bat_path, content)
-            .context("Failed to write shortcut file")?;
-        
+
+        std::fs::write(&bat_path, content).context("Failed to write shortcut file")?;
+
         println!("Shortcut created: {}", bat_path.display());
-        
+
         if needs_admin {
             println!("Note: This shortcut will request administrator privileges when launched.");
             println!("Alternatively, you can:");
-            println!("  - Right-click the .bat file > Properties > Advanced > Run as administrator");
+            println!(
+                "  - Right-click the .bat file > Properties > Advanced > Run as administrator"
+            );
             println!("  - Create a scheduled task to run without UAC prompts");
         }
     }
@@ -876,16 +875,14 @@ fn create_shortcut(profiles: &Profiles, keyword: &str) -> Result<()> {
             current_exe_str,
             keyword
         );
-        
-        std::fs::write(&shortcut_path, &content)
-            .context("Failed to write .desktop file")?;
-        
-        let mut perms = std::fs::metadata(&shortcut_path)?
-            .permissions();
+
+        std::fs::write(&shortcut_path, &content).context("Failed to write .desktop file")?;
+
+        let mut perms = std::fs::metadata(&shortcut_path)?.permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(&shortcut_path, perms)
             .context("Failed to set executable permissions")?;
-        
+
         println!("Shortcut created: {}", shortcut_path.display());
     }
 
@@ -925,7 +922,7 @@ fn show_help() {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    
+
     // Load profiles with error handling
     let mut profiles = match load_profiles() {
         Ok(p) => p,
@@ -935,13 +932,14 @@ fn main() {
             Profiles::new()
         }
     };
-    
+
     // Clean up any orphaned temp profiles on startup
-    let temp_keys: Vec<String> = profiles.keys()
+    let temp_keys: Vec<String> = profiles
+        .keys()
         .filter(|k| k.starts_with(TEMP_PROFILE_PREFIX))
         .cloned()
         .collect();
-    
+
     if !temp_keys.is_empty() {
         for key in temp_keys {
             profiles.remove(&key);
@@ -951,7 +949,8 @@ fn main() {
 
     // Check for cleanup flag (used after elevation)
     let should_cleanup = args.iter().any(|arg| arg == ELEVATION_CLEANUP_FLAG);
-    let args: Vec<String> = args.into_iter()
+    let args: Vec<String> = args
+        .into_iter()
         .filter(|arg| arg != ELEVATION_CLEANUP_FLAG)
         .collect();
 
@@ -973,9 +972,9 @@ fn main() {
                 eprintln!("Run 'affinity-rs list' to see available profiles.");
                 return;
             }
-            
+
             match delete_profile(&mut profiles, &args[2]) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error deleting profile: {:#}", e);
                     pause_before_exit();
@@ -988,9 +987,9 @@ fn main() {
                 eprintln!("Run 'affinity-rs list' to see available profiles.");
                 return;
             }
-            
+
             match create_shortcut(&profiles, &args[2]) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error creating shortcut: {:#}", e);
                     pause_before_exit();
@@ -1005,7 +1004,10 @@ fn main() {
                 launch_or_exit(&profile, program_args, Some(program_name), should_cleanup);
             } else {
                 // Create new profile interactively
-                println!("No profile found for '{}'. Let's create one!\n", program_name);
+                println!(
+                    "No profile found for '{}'. Let's create one!\n",
+                    program_name
+                );
 
                 let path_input = match read_line("Enter full program path: ") {
                     Ok(input) => input.trim_matches('"').to_string(),
@@ -1066,7 +1068,7 @@ fn main() {
 
                 if save_choice.eq_ignore_ascii_case("y") {
                     let mut keyword = program_name.to_string();
-                    
+
                     if keyword.is_empty() || profiles.contains_key(&keyword) {
                         match read_line("Enter a name for this profile: ") {
                             Ok(input) => keyword = input,

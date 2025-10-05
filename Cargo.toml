@@ -18,8 +18,6 @@ windows-sys = { version = "0.61.1", features = [
     "Win32_UI_WindowsAndMessaging", # For SW_SHOWNORMAL
 ] }
 
-
-
 [profile.release]
 codegen-units = 1
 debug = 0
