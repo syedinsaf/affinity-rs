@@ -33,15 +33,21 @@ Binary location: `target/release/affinity-rs` (or `affinity-rs.exe` on Windows)
 
 ### Add to PATH (Recommended)
 
+For global access, add the binary to your system PATH:
+
 **Windows:**
 ```powershell
-# Add to user PATH permanently
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-[Environment]::SetEnvironmentVariable("Path", "$userPath;C:\path\to\affinity-rs", "User")
+# Add the directory containing affinity-rs.exe to your PATH (current session)
+$env:Path += ";C:\path\to\affinity-rs"
+
+# For permanent access (user-level PATH)
+[System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\path\to\affinity-rs", "User")
 ```
 
 **Linux:**
 ```bash
+# On Linux, ensure /usr/local/bin is in your PATH by running echo $PATH.
+# Copy to a directory in your PATH
 sudo cp target/release/affinity-rs /usr/local/bin/
 ```
 
