@@ -298,7 +298,7 @@ Built with Rust using:
 - `serde` & `serde_json` - Serialization
 - `anyhow` - Error handling
 
-CPU affinity is controlled via Windows API (`SetProcessAffinityMask`) on Windows and `taskset` on Linux.
+CPU affinity is controlled via Microsoft's official windows-sys API on Windows and `taskset` on Linux.
 
 ---
 
