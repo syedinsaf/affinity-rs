@@ -197,6 +197,24 @@ fn delete_profile(profiles: &mut Profiles, keyword: &str) -> Result<()> {
     if profiles.remove(keyword).is_some() {
         save_profiles(profiles)?;
         println!("✓ Profile '{}' deleted!", keyword);
+        
+        // Try to delete associated desktop shortcut if it exists
+        if let Some(user_dirs) = UserDirs::new() {
+            if let Some(desktop_dir) = user_dirs.desktop_dir() {
+                #[cfg(target_os = "windows")]
+                let shortcut_path = desktop_dir.join(format!("{}.bat", keyword));
+                
+                #[cfg(target_os = "linux")]
+                let shortcut_path = desktop_dir.join(format!("{}.desktop", keyword));
+                
+                if shortcut_path.exists() {
+                    match std::fs::remove_file(&shortcut_path) {
+                        Ok(_) => println!("✓ Associated desktop shortcut deleted: {}", shortcut_path.display()),
+                        Err(e) => eprintln!("Warning: Could not delete shortcut: {}", e),
+                    }
+                }
+            }
+        }
     } else {
         println!("Profile '{}' not found.", keyword);
     }
