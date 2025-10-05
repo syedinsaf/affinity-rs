@@ -1,6 +1,12 @@
+<div align="center">
+
 # affinity-rs
 
 A simple, cross-platform CPU affinity launcher with profile support. Pin any program to specific CPU cores and save your configurations for quick reuse.
+
+</div>
+
+---
 
 ## Features
 
@@ -29,8 +35,11 @@ For global access, add the binary to your system PATH:
 
 **Windows:**
 ```powershell
-# Add the directory containing affinity-rs.exe to your PATH
+# Add the directory containing affinity-rs.exe to your PATH (current session)
 $env:Path += ";C:\path\to\affinity-rs"
+
+# For permanent access (user-level PATH)
+[System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\path\to\affinity-rs", "User")
 ```
 
 **Linux:**
