@@ -87,17 +87,19 @@ If a profile named "myapp" exists, it will launch immediately with the saved set
 affinity-rs myapp --arg1 value1 --arg2
 ```
 
-#### Delete a Profile
-```bash
-affinity-rs delete myapp
-```
-
 #### Create a Desktop Shortcut
 ```bash
 affinity-rs shortcut myapp
 ```
 
 Creates a clickable shortcut on your desktop that launches the profile. On Windows, this creates a `.bat` file. On Linux, this creates a `.desktop` file.
+
+#### Delete a Profile
+```bash
+affinity-rs delete myapp
+```
+
+This will delete the profile and automatically remove any associated desktop shortcut if one exists.
 
 ## Examples
 
