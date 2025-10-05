@@ -6,6 +6,7 @@ A simple, cross-platform CPU affinity launcher with profile support. Pin any pro
 
 </div>
 
+---
 
 ## Features
 
