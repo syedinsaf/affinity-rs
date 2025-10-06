@@ -2,7 +2,7 @@
 
 # affinity-rs
 
-A simple, cross-platform CPU affinity launcher with profile support. Pin any program to specific CPU cores and save your configurations for quick reuse.
+A simple, cross-platform launcher with profile support for managing CPU affinities and process priorities. Pin programs to specific cores, set priority levels, and reuse saved configurations with ease.
 
 </div>
 
