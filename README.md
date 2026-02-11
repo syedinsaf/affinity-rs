@@ -4,6 +4,10 @@
 
 A simple, cross-platform launcher with profile support for managing CPU affinities and process priorities. Pin programs to specific cores, set priority levels, and reuse saved configurations with ease.
 
+[![GitHub release](https://img.shields.io/github/v/release/syedinsaf/affinity-rs?style=for-the-badge&logo=github&logoColor=white&color=rust)](https://github.com/syedinsaf/affinity-rs/releases)
+[![Downloads](https://img.shields.io/github/downloads/syedinsaf/affinity-rs/total?style=for-the-badge&logo=github&logoColor=white&color=rust)](https://github.com/syedinsaf/affinity-rs/releases)
+[![License](https://img.shields.io/github/license/syedinsaf/affinity-rs?style=for-the-badge&logo=github&logoColor=white&color=rust)](LICENSE)
+
 </div>
 
 ---
