@@ -2,6 +2,13 @@
 name = "affinity-rs"
 version = "0.2.0"
 edition = "2024"
+description = "CPU affinity and process priority launcher with profile support"
+license = "MIT"
+repository = "https://github.com/syedinsaf/affinity-rs"
+readme = "README.md"
+keywords = ["cpu", "affinity", "priority", "process", "cli"]
+categories = ["command-line-utilities", "os"]
+authors = ["Syed Insaf"]
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
